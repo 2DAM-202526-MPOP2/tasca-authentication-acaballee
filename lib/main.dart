@@ -4,7 +4,12 @@ import 'package:first_flutter/data/services/sentence_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'data/services/sentence_service.dart'
+    show SentenceService, ISentenceService;
 import 'presentation/viewmodels/sentence_vm.dart';
+import 'data/services/authetication_service.dart';
+import 'data/repositories/authentication_repository.dart';
+import 'presentation/viewmodels/authentication_vm.dart';
 
 void main() {
   runApp(
@@ -18,6 +23,13 @@ void main() {
             sentenceService: context.read(),
           ), //ISentenceRepository instance
         ),
+        Provider<IAuthenticationService>(
+          create: (context) => AuthenticationService(),
+        ),
+        Provider<IAuthenticationRepository>(
+          create: (context) =>
+              AuthenticationRepository(authenticationService: context.read()),
+        ),
       ],
       child: const MyApp(),
     ),
@@ -29,8 +41,16 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => SentenceVM(sentenceRepository: context.read()),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => SentenceVM(sentenceRepository: context.read()),
+        ),
+        ChangeNotifierProvider(
+          create: (context) =>
+              AuthenticationVM(authenticationRepository: context.read()),
+        ),
+      ],
       child: MaterialApp(
         title: 'Namer App',
         theme: ThemeData(
@@ -56,10 +76,10 @@ class _MyHomePageState extends State<MyHomePage> {
     switch (selectedIndex) {
       case 0:
         page = GeneratorPage();
-        break;
       case 1:
         page = FavoritesPage();
-        break;
+      case 2:
+        page = LoginPage();
       default:
         throw UnimplementedError('no widget for $selectedIndex');
     }
@@ -76,6 +96,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   icon: Icon(Icons.favorite),
                   label: 'Favorites',
                 ),
+                NavigationDestination(icon: Icon(Icons.login), label: 'Login'),
               ],
               selectedIndex: selectedIndex,
               onDestinationSelected: (value) {
@@ -100,6 +121,10 @@ class _MyHomePageState extends State<MyHomePage> {
                       NavigationRailDestination(
                         icon: Icon(Icons.favorite),
                         label: Text('Favorites'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.login),
+                        label: Text('Login'),
                       ),
                     ],
                     selectedIndex: selectedIndex,
@@ -233,6 +258,62 @@ class FavoritesPage extends StatelessWidget {
             title: Text(word.text),
           ),
       ],
+    );
+  }
+}
+
+class LoginPage extends StatefulWidget {
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    var vm = context.watch<AuthenticationVM>();
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 50.0),
+            child: TextField(
+              controller: _usernameController,
+              decoration: InputDecoration(hintText: 'Enter Username'),
+            ),
+          ),
+          SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 50.0),
+            child: TextField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: InputDecoration(hintText: 'Enter Password'),
+            ),
+          ),
+          SizedBox(height: 20),
+          if (vm.isLoading)
+            CircularProgressIndicator()
+          else
+            ElevatedButton(
+              onPressed: () {
+                vm.login(_usernameController.text, _passwordController.text);
+              },
+              child: Text('Login'),
+            ),
+          SizedBox(height: 20),
+          if (vm.user != null)
+            Text('Logged in as ${vm.user!.username}')
+          else if (vm.error != null)
+            Text('Error: ${vm.error}')
+          else
+            Text('Not logged in yet.'),
+        ],
+      ),
     );
   }
 }
